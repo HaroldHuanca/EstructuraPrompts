@@ -1,11 +1,11 @@
 # Investigacion
 
-Proyecto para registrar problemas, tecnicas, experimentos y resultados, con un backend FastAPI, PostgreSQL local y un frontend Vite/React para probar CRUD y ejecuciones de experimentacion.
+Proyecto para registrar problemas, tecnicas, casos de prueba, experimentos, resultados y ejecuciones de prueba, con un backend FastAPI, PostgreSQL local y un frontend Vite/React para probar CRUD y ejecuciones de experimentacion.
 
 ## Estructura
 
 - `backend/`: API, modelos, servicios y acceso a base de datos.
-- `frontend/`: interfaz grafica para CRUD y control de experimentos.
+- `frontend/`: interfaz grafica para CRUD de problemas y casos_prueba, mas control de experimentos.
 - `investigacion.sql`: esquema original de la base de datos.
 
 ## Requisitos
@@ -76,18 +76,21 @@ La interfaz quedara en:
 
 El frontend permite probar estas operaciones:
 
-- Problemas: crear, listar, editar y eliminar.
-- Tecnicas: crear, listar, editar y eliminar.
-- Experimentos: crear, listar, editar, eliminar y ejecutar.
-- Resultados: crear, listar, editar y eliminar.
+- Problemas: crear, listar, editar, eliminar y lanzar experimentos.
+- Casos de prueba: crear, listar, editar y eliminar.
+- Tecnicas: solo listar.
+- Experimentos: solo listar.
+- Resultados: solo listar.
+- Ejecuciones de prueba: solo listar.
 
 Flujo recomendado:
 
 1. Crea primero un problema.
 2. Crea una tecnica.
-3. Genera un experimento usando ambos registros.
-4. Revisa que el backend inserte automaticamente un resultado asociado.
-5. Modifica y elimina registros desde la tabla correspondiente.
+3. Crea uno o mas casos de prueba para el problema.
+4. Ejecuta un experimento individual, un lote de problemas seleccionados o todos los pendientes desde el panel de problemas.
+5. Revisa que el backend inserte automaticamente el experimento, el resultado y las ejecuciones de prueba asociadas.
+6. Modifica y elimina problemas o casos de prueba desde la interfaz.
 
 ## Flujo De Datos
 
@@ -135,19 +138,17 @@ flowchart LR
 - `POST /api/v1/problems/`
 - `PUT /api/v1/problems/{id}`
 - `DELETE /api/v1/problems/{id}`
+- `GET /api/v1/cases-prueba/`
+- `POST /api/v1/cases-prueba/`
+- `PUT /api/v1/cases-prueba/{id}`
+- `DELETE /api/v1/cases-prueba/{id}`
 - `GET /api/v1/techniques/`
-- `POST /api/v1/techniques/`
-- `PUT /api/v1/techniques/{id}`
-- `DELETE /api/v1/techniques/{id}`
 - `GET /api/v1/experiments/`
-- `POST /api/v1/experiments/`
-- `PUT /api/v1/experiments/{id}`
-- `DELETE /api/v1/experiments/{id}`
-- `POST /api/v1/experiments/execute`
+- `POST /api/v1/experiments/run/{problem_id}`
+- `POST /api/v1/experiments/run-batch`
+- `POST /api/v1/experiments/run-pending`
 - `GET /api/v1/results/`
-- `POST /api/v1/results/`
-- `PUT /api/v1/results/{id}`
-- `DELETE /api/v1/results/{id}`
+- `GET /api/v1/execution-tests/`
 
 ## Herramientas Usadas Durante El Desarrollo
 

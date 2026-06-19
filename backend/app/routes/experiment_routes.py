@@ -2,7 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db
-from app.schemas.experiment import ExperimentCreate, ExperimentExecution, ExperimentRead, ExperimentUpdate
+from app.schemas.experiment import (
+    ExperimentBatchExecution,
+    ExperimentCreate,
+    ExperimentExecution,
+    ExperimentRead,
+    ExperimentUpdate,
+    TechniqueExecution,
+)
 from app.services.experiment_service import ExperimentService
 
 router = APIRouter(prefix="/experiments", tags=["Experiments"])
@@ -53,9 +60,35 @@ def delete_experiment(experiment_id: int, db: Session = Depends(get_db)):
 def execute_experiment(payload: ExperimentExecution, db: Session = Depends(get_db)):
     service = ExperimentService(db)
     try:
-        experiment, _ = service.run_experiment(
-            ExperimentCreate(id_problema=payload.problem_id, id_tecnica=payload.technique_id)
-        )
+        experiment, _ = service.run_experiment_for_problem(payload.problem_id, payload.technique_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return experiment
+
+
+@router.post("/run/{problem_id}", response_model=ExperimentRead, status_code=201)
+def run_single_problem(problem_id: int, payload: TechniqueExecution, db: Session = Depends(get_db)):
+    service = ExperimentService(db)
+    try:
+        experiment, _ = service.run_experiment_for_problem(problem_id, payload.technique_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return experiment
+
+
+@router.post("/run-batch", response_model=list[ExperimentRead], status_code=201)
+def run_batch(payload: ExperimentBatchExecution, db: Session = Depends(get_db)):
+    service = ExperimentService(db)
+    try:
+        return service.run_experiments_for_problem_ids(payload.problem_ids, payload.technique_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/run-pending", response_model=list[ExperimentRead], status_code=201)
+def run_pending(payload: TechniqueExecution, db: Session = Depends(get_db)):
+    service = ExperimentService(db)
+    try:
+        return service.run_experiments_for_pending_problems(payload.technique_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -51,6 +51,44 @@ CREATE TABLE resultados (
         REFERENCES experimentos(id_experimento)
 );
 
+CREATE TABLE casos_prueba (
+    id_caso_prueba SERIAL PRIMARY KEY,
+
+    id_problema INTEGER NOT NULL,
+
+    datos_entrada JSONB NOT NULL,
+
+    salida_esperada JSONB NOT NULL,
+
+    descripcion TEXT,
+
+    FOREIGN KEY (id_problema)
+        REFERENCES problemas(id_problema)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE ejecuciones_prueba (
+    id_ejecucion_prueba SERIAL PRIMARY KEY,
+
+    id_experimento INTEGER NOT NULL,
+
+    id_caso_prueba INTEGER NOT NULL,
+
+    prueba_superada BOOLEAN NOT NULL,
+
+    tiempo_ejecucion NUMERIC(10,4),
+
+    mensaje_error TEXT,
+
+    FOREIGN KEY (id_experimento)
+        REFERENCES experimentos(id_experimento)
+        ON DELETE CASCADE,
+
+    FOREIGN KEY (id_caso_prueba)
+        REFERENCES casos_prueba(id_caso_prueba)
+        ON DELETE CASCADE
+);
+
 INSERT INTO tecnicas(nombre)
 VALUES
 ('Zero-Shot'),

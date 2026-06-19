@@ -28,3 +28,12 @@ class ExperimentRead(BaseModel):
 class ExperimentExecution(BaseModel):
     problem_id: int
     technique_id: int
+
+
+class TechniqueExecution(BaseModel):
+    technique_id: int
+
+
+class ExperimentBatchExecution(BaseModel):
+    problem_ids: list[int]
+    technique_id: int

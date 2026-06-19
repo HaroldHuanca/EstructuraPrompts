@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.database.base import Base
 from app.database.connection import engine
-from app.models import experiment, problem, result, technique  # noqa: F401
+from app.models import case_test, execution_test, experiment, problem, result, technique  # noqa: F401
+from app.routes.case_test_routes import router as case_test_router
+from app.routes.execution_test_routes import router as execution_test_router
 from app.routes.experiment_routes import router as experiment_router
 from app.routes.problem_routes import router as problem_router
 from app.routes.result_routes import router as result_router
@@ -34,6 +36,8 @@ def on_startup() -> None:
 
 
 app.include_router(problem_router, prefix=settings.api_prefix)
+app.include_router(case_test_router, prefix=settings.api_prefix)
+app.include_router(execution_test_router, prefix=settings.api_prefix)
 app.include_router(technique_router, prefix=settings.api_prefix)
 app.include_router(experiment_router, prefix=settings.api_prefix)
 app.include_router(result_router, prefix=settings.api_prefix)

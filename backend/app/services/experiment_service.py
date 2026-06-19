@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.repositories.experiment_repository import ExperimentRepository
+from app.repositories.execution_test_repository import ExecutionTestRepository
 from app.repositories.problem_repository import ProblemRepository
 from app.repositories.result_repository import ResultRepository
 from app.repositories.technique_repository import TechniqueRepository
@@ -17,6 +18,7 @@ class ExperimentService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.experiment_repository = ExperimentRepository(db)
+        self.execution_test_repository = ExecutionTestRepository(db)
         self.result_repository = ResultRepository(db)
         self.problem_repository = ProblemRepository(db)
         self.technique_repository = TechniqueRepository(db)
@@ -26,7 +28,8 @@ class ExperimentService:
         self.pytest_service = PytestService()
         self.sonarqube_service = SonarQubeService()
 
-    def run_experiment(self, payload: ExperimentCreate):
+    def _run_experiment_for_problem(self, problem_id: int, technique_id: int):
+        payload = ExperimentCreate(id_problema=problem_id, id_tecnica=technique_id)
         problem = self.problem_repository.get(payload.id_problema)
         technique = self.technique_repository.get(payload.id_tecnica)
 
@@ -55,3 +58,24 @@ class ExperimentService:
         )
 
         return experiment, result
+
+    def run_experiment(self, payload: ExperimentCreate):
+        return self._run_experiment_for_problem(payload.id_problema, payload.id_tecnica)
+
+    def run_experiment_for_problem(self, problem_id: int, technique_id: int):
+        return self._run_experiment_for_problem(problem_id, technique_id)
+
+    def run_experiments_for_problem_ids(self, problem_ids: list[int], technique_id: int):
+        experiments = []
+        for problem_id in problem_ids:
+            experiment, _ = self._run_experiment_for_problem(problem_id, technique_id)
+            experiments.append(experiment)
+        return experiments
+
+    def run_experiments_for_pending_problems(self, technique_id: int):
+        experiments = []
+        for problem in self.problem_repository.list():
+            if not self.experiment_repository.exists_for_problem(problem.id_problema):
+                experiment, _ = self._run_experiment_for_problem(problem.id_problema, technique_id)
+                experiments.append(experiment)
+        return experiments

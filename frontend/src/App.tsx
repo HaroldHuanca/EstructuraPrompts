@@ -1,6 +1,6 @@
-import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { api } from './api'
-import type { Experiment, Problem, Result, Technique } from './types'
+import type { CaseTest, ExecutionTest, Experiment, Problem, Result, Technique } from './types'
 
 type ProblemForm = {
   titulo: string
@@ -9,25 +9,11 @@ type ProblemForm = {
   restricciones: string
 }
 
-type TechniqueForm = {
-  nombre: string
-  descripcion: string
-}
-
-type ExperimentForm = {
+type CaseForm = {
   id_problema: string
-  id_tecnica: string
-  prompt_generado: string
-  codigo_generado: string
-}
-
-type ResultForm = {
-  id_experimento: string
-  exactitud_funcional: string
-  maintainability_index: string
-  complejidad: string
-  cognitive_complexity: string
-  code_smells: string
+  datos_entrada: string
+  salida_esperada: string
+  descripcion: string
 }
 
 const emptyProblemForm: ProblemForm = {
@@ -37,73 +23,66 @@ const emptyProblemForm: ProblemForm = {
   restricciones: '',
 }
 
-const emptyTechniqueForm: TechniqueForm = {
-  nombre: '',
-  descripcion: '',
-}
-
-const emptyExperimentForm: ExperimentForm = {
+const emptyCaseForm: CaseForm = {
   id_problema: '',
-  id_tecnica: '',
-  prompt_generado: '',
-  codigo_generado: '',
-}
-
-const emptyResultForm: ResultForm = {
-  id_experimento: '',
-  exactitud_funcional: '',
-  maintainability_index: '',
-  complejidad: '',
-  cognitive_complexity: '',
-  code_smells: '',
+  datos_entrada: '{\n  "valor": 1\n}',
+  salida_esperada: '{\n  "valor": 1\n}',
+  descripcion: '',
 }
 
 function App() {
   const [problems, setProblems] = useState<Problem[]>([])
+  const [casesTests, setCasesTests] = useState<CaseTest[]>([])
   const [techniques, setTechniques] = useState<Technique[]>([])
   const [experiments, setExperiments] = useState<Experiment[]>([])
   const [results, setResults] = useState<Result[]>([])
+  const [executionTests, setExecutionTests] = useState<ExecutionTest[]>([])
+
   const [problemForm, setProblemForm] = useState<ProblemForm>(emptyProblemForm)
-  const [techniqueForm, setTechniqueForm] = useState<TechniqueForm>(emptyTechniqueForm)
-  const [experimentForm, setExperimentForm] = useState<ExperimentForm>(emptyExperimentForm)
-  const [resultForm, setResultForm] = useState<ResultForm>(emptyResultForm)
-  const [selectedProblemId, setSelectedProblemId] = useState<number | null>(null)
-  const [selectedTechniqueId, setSelectedTechniqueId] = useState<number | null>(null)
-  const [selectedExperimentId, setSelectedExperimentId] = useState<number | null>(null)
-  const [selectedResultId, setSelectedResultId] = useState<number | null>(null)
+  const [caseForm, setCaseForm] = useState<CaseForm>(emptyCaseForm)
+  const [editingProblemId, setEditingProblemId] = useState<number | null>(null)
+  const [editingCaseId, setEditingCaseId] = useState<number | null>(null)
+  const [selectedProblemIds, setSelectedProblemIds] = useState<number[]>([])
+  const [experimentTechniqueId, setExperimentTechniqueId] = useState('')
   const [status, setStatus] = useState('Listo para probar la API')
   const [busy, setBusy] = useState(false)
 
   const selectedProblem = useMemo(
-    () => problems.find((problem) => problem.id_problema === selectedProblemId) ?? null,
-    [problems, selectedProblemId],
+    () => problems.find((problem) => problem.id_problema === editingProblemId) ?? null,
+    [editingProblemId, problems],
   )
-  const selectedTechnique = useMemo(
-    () => techniques.find((technique) => technique.id_tecnica === selectedTechniqueId) ?? null,
-    [selectedTechniqueId, techniques],
+  const selectedCase = useMemo(
+    () => casesTests.find((caseTest) => caseTest.id_caso_prueba === editingCaseId) ?? null,
+    [casesTests, editingCaseId],
   )
-  const selectedExperiment = useMemo(
-    () => experiments.find((experiment) => experiment.id_experimento === selectedExperimentId) ?? null,
-    [experiments, selectedExperimentId],
-  )
-  const selectedResult = useMemo(
-    () => results.find((result) => result.id_resultado === selectedResultId) ?? null,
-    [results, selectedResultId],
-  )
+
+  const pendingProblems = useMemo(() => {
+    const problemIdsWithExperiments = new Set(experiments.map((experiment) => experiment.id_problema))
+    return problems.filter((problem) => !problemIdsWithExperiments.has(problem.id_problema))
+  }, [experiments, problems])
+
+  const techniqueById = useMemo(() => new Map(techniques.map((technique) => [technique.id_tecnica, technique])), [techniques])
+  const problemById = useMemo(() => new Map(problems.map((problem) => [problem.id_problema, problem])), [problems])
+  const caseById = useMemo(() => new Map(casesTests.map((caseTest) => [caseTest.id_caso_prueba, caseTest])), [casesTests])
+  const experimentById = useMemo(() => new Map(experiments.map((experiment) => [experiment.id_experimento, experiment])), [experiments])
 
   async function loadAll() {
     setBusy(true)
     try {
-      const [nextProblems, nextTechniques, nextExperiments, nextResults] = await Promise.all([
+      const [nextProblems, nextCases, nextTechniques, nextExperiments, nextResults, nextExecutionTests] = await Promise.all([
         api.problems.list(),
+        api.cases.list(),
         api.techniques.list(),
         api.experiments.list(),
         api.results.list(),
+        api.executionTests.list(),
       ])
-      setProblems(nextProblems)
-      setTechniques(nextTechniques)
-      setExperiments(nextExperiments)
-      setResults(nextResults)
+      setProblems(nextProblems as Problem[])
+      setCasesTests(nextCases as CaseTest[])
+      setTechniques(nextTechniques as Technique[])
+      setExperiments(nextExperiments as Experiment[])
+      setResults(nextResults as Result[])
+      setExecutionTests(nextExecutionTests as ExecutionTest[])
       setStatus('Datos sincronizados con el backend')
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Error cargando datos')
@@ -116,19 +95,39 @@ function App() {
     void loadAll()
   }, [])
 
+  useEffect(() => {
+    if (!experimentTechniqueId && techniques.length > 0) {
+      setExperimentTechniqueId(String(techniques[0].id_tecnica))
+    }
+  }, [experimentTechniqueId, techniques])
+
+  useEffect(() => {
+    if (!caseForm.id_problema && problems.length > 0) {
+      setCaseForm((current) => ({ ...current, id_problema: String(problems[0].id_problema) }))
+    }
+  }, [caseForm.id_problema, problems])
+
   async function handleProblemSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
     try {
+      const payload = {
+        titulo: problemForm.titulo,
+        dificultad: problemForm.dificultad || null,
+        descripcion: problemForm.descripcion || null,
+        restricciones: problemForm.restricciones || null,
+      }
+
       if (selectedProblem) {
-        await api.problems.update(selectedProblem.id_problema, problemForm)
+        await api.problems.update(selectedProblem.id_problema, payload)
         setStatus(`Problema ${selectedProblem.id_problema} actualizado`)
       } else {
-        await api.problems.create(problemForm)
+        await api.problems.create(payload)
         setStatus('Problema creado')
       }
+
       setProblemForm(emptyProblemForm)
-      setSelectedProblemId(null)
+      setEditingProblemId(null)
       await loadAll()
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Error guardando problema')
@@ -137,102 +136,30 @@ function App() {
     }
   }
 
-  async function handleTechniqueSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    try {
-      if (selectedTechnique) {
-        await api.techniques.update(selectedTechnique.id_tecnica, techniqueForm)
-        setStatus(`Técnica ${selectedTechnique.id_tecnica} actualizada`)
-      } else {
-        await api.techniques.create(techniqueForm)
-        setStatus('Técnica creada')
-      }
-      setTechniqueForm(emptyTechniqueForm)
-      setSelectedTechniqueId(null)
-      await loadAll()
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error guardando técnica')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleExperimentSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleCaseSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
     try {
       const payload = {
-        id_problema: Number(experimentForm.id_problema),
-        id_tecnica: Number(experimentForm.id_tecnica),
-        prompt_generado: experimentForm.prompt_generado,
-        codigo_generado: experimentForm.codigo_generado,
+        id_problema: Number(caseForm.id_problema),
+        datos_entrada: JSON.parse(caseForm.datos_entrada),
+        salida_esperada: JSON.parse(caseForm.salida_esperada),
+        descripcion: caseForm.descripcion || null,
       }
 
-      if (selectedExperiment) {
-        await api.experiments.update(selectedExperiment.id_experimento, payload)
-        setStatus(`Experimento ${selectedExperiment.id_experimento} actualizado`)
+      if (selectedCase) {
+        await api.cases.update(selectedCase.id_caso_prueba, payload)
+        setStatus(`Caso de prueba ${selectedCase.id_caso_prueba} actualizado`)
       } else {
-        await api.experiments.create(payload)
-        setStatus('Experimento creado y ejecutado')
+        await api.cases.create(payload)
+        setStatus('Caso de prueba creado')
       }
 
-      setExperimentForm(emptyExperimentForm)
-      setSelectedExperimentId(null)
+      setCaseForm(emptyCaseForm)
+      setEditingCaseId(null)
       await loadAll()
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error creando experimento')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleExperimentExecute() {
-    if (!experimentForm.id_problema || !experimentForm.id_tecnica) {
-      setStatus('Selecciona problema y técnica para ejecutar')
-      return
-    }
-    setBusy(true)
-    try {
-      await api.experiments.execute({
-        problem_id: Number(experimentForm.id_problema),
-        technique_id: Number(experimentForm.id_tecnica),
-      })
-      setStatus('Experimento ejecutado')
-      await loadAll()
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error ejecutando experimento')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleResultSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setBusy(true)
-    try {
-      const payload = {
-        id_experimento: Number(resultForm.id_experimento),
-        exactitud_funcional: resultForm.exactitud_funcional ? Number(resultForm.exactitud_funcional) : null,
-        maintainability_index: resultForm.maintainability_index ? Number(resultForm.maintainability_index) : null,
-        complejidad: resultForm.complejidad ? Number(resultForm.complejidad) : null,
-        cognitive_complexity: resultForm.cognitive_complexity ? Number(resultForm.cognitive_complexity) : null,
-        code_smells: resultForm.code_smells ? Number(resultForm.code_smells) : null,
-      }
-
-      if (selectedResult) {
-        await api.results.update(selectedResult.id_resultado, payload)
-        setStatus(`Resultado ${selectedResult.id_resultado} actualizado`)
-      } else {
-        await api.results.create(payload)
-        setStatus('Resultado creado')
-      }
-
-      setResultForm(emptyResultForm)
-      setSelectedResultId(null)
-      await loadAll()
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error guardando resultado')
+      setStatus(error instanceof Error ? error.message : 'Error guardando caso de prueba')
     } finally {
       setBusy(false)
     }
@@ -242,6 +169,7 @@ function App() {
     setBusy(true)
     try {
       await api.problems.remove(id)
+      setSelectedProblemIds((current) => current.filter((problemId) => problemId !== id))
       setStatus(`Problema ${id} eliminado`)
       await loadAll()
     } catch (error) {
@@ -251,43 +179,82 @@ function App() {
     }
   }
 
-  async function removeTechnique(id: number) {
+  async function removeCase(id: number) {
     setBusy(true)
     try {
-      await api.techniques.remove(id)
-      setStatus(`Técnica ${id} eliminada`)
+      await api.cases.remove(id)
+      setStatus(`Caso de prueba ${id} eliminado`)
       await loadAll()
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error eliminando técnica')
+      setStatus(error instanceof Error ? error.message : 'Error eliminando caso de prueba')
     } finally {
       setBusy(false)
     }
   }
 
-  async function removeExperiment(id: number) {
+  async function runSingleProblem(problemId: number) {
+    if (!experimentTechniqueId) {
+      setStatus('Selecciona una técnica para ejecutar experimentos')
+      return
+    }
+
     setBusy(true)
     try {
-      await api.experiments.remove(id)
-      setStatus(`Experimento ${id} eliminado`)
+      await api.experiments.runSingle(problemId, Number(experimentTechniqueId))
+      setStatus(`Experimento ejecutado para el problema ${problemId}`)
       await loadAll()
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error eliminando experimento')
+      setStatus(error instanceof Error ? error.message : 'Error ejecutando experimento')
     } finally {
       setBusy(false)
     }
   }
 
-  async function removeResult(id: number) {
+  async function runSelectedProblems() {
+    if (!experimentTechniqueId) {
+      setStatus('Selecciona una técnica para ejecutar experimentos')
+      return
+    }
+
+    if (selectedProblemIds.length === 0) {
+      setStatus('Selecciona al menos un problema')
+      return
+    }
+
     setBusy(true)
     try {
-      await api.results.remove(id)
-      setStatus(`Resultado ${id} eliminado`)
+      await api.experiments.runBatch(selectedProblemIds, Number(experimentTechniqueId))
+      setStatus(`Experimentos ejecutados para ${selectedProblemIds.length} problemas seleccionados`)
       await loadAll()
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Error eliminando resultado')
+      setStatus(error instanceof Error ? error.message : 'Error ejecutando lote de experimentos')
     } finally {
       setBusy(false)
     }
+  }
+
+  async function runPendingProblems() {
+    if (!experimentTechniqueId) {
+      setStatus('Selecciona una técnica para ejecutar experimentos')
+      return
+    }
+
+    setBusy(true)
+    try {
+      await api.experiments.runPending(Number(experimentTechniqueId))
+      setStatus(`Experimentos ejecutados para ${pendingProblems.length} problemas pendientes`)
+      await loadAll()
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Error ejecutando problemas pendientes')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggleProblemSelection = (problemId: number) => {
+    setSelectedProblemIds((current) =>
+      current.includes(problemId) ? current.filter((id) => id !== problemId) : [...current, problemId],
+    )
   }
 
   return (
@@ -295,10 +262,10 @@ function App() {
       <section className="hero">
         <div>
           <p className="eyebrow">Investigacion Lab</p>
-          <h1>CRUD visual para validar la base de datos y la experimentación</h1>
+          <h1>CRUD visual y controles de experimentación</h1>
           <p className="lede">
-            Crea, edita y elimina problemas, técnicas, experimentos y resultados desde una interfaz única.
-            También puedes lanzar experimentos con el backend y revisar las métricas generadas.
+            Solo problemas y casos_prueba son editables desde la interfaz. El resto de tablas se muestran en modo lectura,
+            mientras que los experimentos se lanzan desde el panel de problemas.
           </p>
         </div>
         <div className="status-card">
@@ -312,197 +279,348 @@ function App() {
       </section>
 
       <section className="grid two-up">
-        <CrudPanel
-          title="Problemas"
-          subtitle="Tabla problemas"
-          form={
-            <form onSubmit={handleProblemSubmit} className="form-grid">
-              <input value={problemForm.titulo} onChange={(event) => setProblemForm({ ...problemForm, titulo: event.target.value })} placeholder="Título" />
-              <input value={problemForm.dificultad} onChange={(event) => setProblemForm({ ...problemForm, dificultad: event.target.value })} placeholder="Dificultad" />
-              <textarea value={problemForm.descripcion} onChange={(event) => setProblemForm({ ...problemForm, descripcion: event.target.value })} placeholder="Descripción" />
-              <textarea value={problemForm.restricciones} onChange={(event) => setProblemForm({ ...problemForm, restricciones: event.target.value })} placeholder="Restricciones" />
-              <div className="actions-row">
-                <button type="submit">{selectedProblem ? 'Actualizar problema' : 'Crear problema'}</button>
-                {selectedProblem && (
-                  <button type="button" className="ghost" onClick={() => { setSelectedProblemId(null); setProblemForm(emptyProblemForm) }}>
-                    Cancelar edición
-                  </button>
-                )}
-              </div>
-            </form>
-          }
-          table={<EntityTable<Problem> rows={problems} onEdit={(row) => { setSelectedProblemId(row.id_problema); setProblemForm({ titulo: row.titulo, dificultad: row.dificultad ?? '', descripcion: row.descripcion ?? '', restricciones: row.restricciones ?? '' }) }} onDelete={(row) => void removeProblem(row.id_problema)} renderRow={(row) => [row.id_problema, row.titulo, row.dificultad ?? '-', row.descripcion ?? '-', row.restricciones ?? '-']} />}
-        />
+        <article className="panel">
+          <div className="panel-head">
+            <div>
+              <p className="eyebrow">Problemas</p>
+              <h2>CRUD y experimentación</h2>
+            </div>
+            <div className="status-pill">Pendientes: {pendingProblems.length}</div>
+          </div>
 
-        <CrudPanel
-          title="Técnicas"
-          subtitle="Tabla técnicas"
-          form={
-            <form onSubmit={handleTechniqueSubmit} className="form-grid">
-              <input value={techniqueForm.nombre} onChange={(event) => setTechniqueForm({ ...techniqueForm, nombre: event.target.value })} placeholder="Nombre" />
-              <textarea value={techniqueForm.descripcion} onChange={(event) => setTechniqueForm({ ...techniqueForm, descripcion: event.target.value })} placeholder="Descripción" />
-              <div className="actions-row">
-                <button type="submit">{selectedTechnique ? 'Actualizar técnica' : 'Crear técnica'}</button>
-                {selectedTechnique && (
-                  <button type="button" className="ghost" onClick={() => { setSelectedTechniqueId(null); setTechniqueForm(emptyTechniqueForm) }}>
-                    Cancelar edición
-                  </button>
-                )}
-              </div>
-            </form>
-          }
-          table={<EntityTable<Technique> rows={techniques} onEdit={(row) => { setSelectedTechniqueId(row.id_tecnica); setTechniqueForm({ nombre: row.nombre, descripcion: row.descripcion ?? '' }) }} onDelete={(row) => void removeTechnique(row.id_tecnica)} renderRow={(row) => [row.id_tecnica, row.nombre, row.descripcion ?? '-']} />}
-        />
-      </section>
-
-      <section className="grid two-up">
-        <CrudPanel
-          title="Experimentos"
-          subtitle="Tabla experimentos y controles"
-          form={
-            <form onSubmit={handleExperimentSubmit} className="form-grid">
-              <select value={experimentForm.id_problema} onChange={(event) => setExperimentForm({ ...experimentForm, id_problema: event.target.value })}>
-                <option value="">Selecciona un problema</option>
-                {problems.map((problem) => (
-                  <option key={problem.id_problema} value={problem.id_problema}>{problem.id_problema} - {problem.titulo}</option>
-                ))}
-              </select>
-              <select value={experimentForm.id_tecnica} onChange={(event) => setExperimentForm({ ...experimentForm, id_tecnica: event.target.value })}>
-                <option value="">Selecciona una técnica</option>
-                {techniques.map((technique) => (
-                  <option key={technique.id_tecnica} value={technique.id_tecnica}>{technique.id_tecnica} - {technique.nombre}</option>
-                ))}
-              </select>
-              <textarea value={experimentForm.prompt_generado} onChange={(event) => setExperimentForm({ ...experimentForm, prompt_generado: event.target.value })} placeholder="Prompt opcional de referencia" />
-              <textarea value={experimentForm.codigo_generado} onChange={(event) => setExperimentForm({ ...experimentForm, codigo_generado: event.target.value })} placeholder="Código opcional de referencia" />
-              <div className="actions-row">
-                <button type="submit">{selectedExperiment ? 'Actualizar experimento' : 'Crear experimento'}</button>
-                <button type="button" className="secondary" onClick={handleExperimentExecute}>Ejecutar experimento</button>
-              </div>
-              {selectedExperiment && (
-                <button type="button" className="ghost" onClick={() => { setSelectedExperimentId(null); setExperimentForm(emptyExperimentForm) }}>
+          <form onSubmit={handleProblemSubmit} className="form-grid">
+            <input
+              value={problemForm.titulo}
+              onChange={(event) => setProblemForm({ ...problemForm, titulo: event.target.value })}
+              placeholder="Título"
+            />
+            <input
+              value={problemForm.dificultad}
+              onChange={(event) => setProblemForm({ ...problemForm, dificultad: event.target.value })}
+              placeholder="Dificultad"
+            />
+            <textarea
+              value={problemForm.descripcion}
+              onChange={(event) => setProblemForm({ ...problemForm, descripcion: event.target.value })}
+              placeholder="Descripción"
+            />
+            <textarea
+              value={problemForm.restricciones}
+              onChange={(event) => setProblemForm({ ...problemForm, restricciones: event.target.value })}
+              placeholder="Restricciones"
+            />
+            <div className="actions-row">
+              <button type="submit">{selectedProblem ? 'Actualizar problema' : 'Crear problema'}</button>
+              {selectedProblem && (
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setEditingProblemId(null)
+                    setProblemForm(emptyProblemForm)
+                  }}
+                >
                   Cancelar edición
                 </button>
               )}
-            </form>
-          }
-          table={<EntityTable<Experiment> rows={experiments} onEdit={(row) => { setSelectedExperimentId(row.id_experimento); setExperimentForm({ id_problema: String(row.id_problema), id_tecnica: String(row.id_tecnica), prompt_generado: row.prompt_generado, codigo_generado: row.codigo_generado }) }} onDelete={(row) => void removeExperiment(row.id_experimento)} renderRow={(row) => [row.id_experimento, row.id_problema, row.id_tecnica, row.fecha_ejecucion ?? '-', row.prompt_generado.slice(0, 48)]} />}
-        />
+            </div>
+          </form>
 
-        <div className="panel spotlight">
+          <div className="toolbar">
+            <label>
+              Técnica para experimentos
+              <select value={experimentTechniqueId} onChange={(event) => setExperimentTechniqueId(event.target.value)}>
+                <option value="">Selecciona una técnica</option>
+                {techniques.map((technique) => (
+                  <option key={technique.id_tecnica} value={technique.id_tecnica}>
+                    {technique.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="actions-row">
+              <button type="button" className="secondary" onClick={() => void runSelectedProblems()}>
+                Ejecutar seleccionados
+              </button>
+              <button type="button" className="secondary" onClick={() => void runPendingProblems()}>
+                Ejecutar pendientes
+              </button>
+            </div>
+          </div>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>ID</th>
+                  <th>Título</th>
+                  <th>Dificultad</th>
+                  <th>Descripción</th>
+                  <th>Restricciones</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {problems.map((problem) => (
+                  <tr key={problem.id_problema}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedProblemIds.includes(problem.id_problema)}
+                        onChange={() => toggleProblemSelection(problem.id_problema)}
+                      />
+                    </td>
+                    <td>{problem.id_problema}</td>
+                    <td>{problem.titulo}</td>
+                    <td>{problem.dificultad ?? '-'}</td>
+                    <td>{problem.descripcion ?? '-'}</td>
+                    <td>{problem.restricciones ?? '-'}</td>
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="small"
+                          onClick={() => {
+                            setEditingProblemId(problem.id_problema)
+                            setProblemForm({
+                              titulo: problem.titulo,
+                              dificultad: problem.dificultad ?? '',
+                              descripcion: problem.descripcion ?? '',
+                              restricciones: problem.restricciones ?? '',
+                            })
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button type="button" className="small danger" onClick={() => void removeProblem(problem.id_problema)}>
+                          Eliminar
+                        </button>
+                        <button type="button" className="small secondary" onClick={() => void runSingleProblem(problem.id_problema)}>
+                          Ejecutar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {problems.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="empty-state">
+                      Sin problemas todavía
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article className="panel">
           <div className="panel-head">
             <div>
-              <p className="eyebrow">Control experimental</p>
-              <h2>Ejecutar y revisar</h2>
+              <p className="eyebrow">Casos de prueba</p>
+              <h2>CRUD editable</h2>
             </div>
-            <button type="button" className="secondary" onClick={handleExperimentExecute}>Lanzar ahora</button>
           </div>
-          <div className="control-list">
-            <div><span>Problema</span><strong>{selectedProblem ? `${selectedProblem.id_problema} - ${selectedProblem.titulo}` : 'Ninguno seleccionado'}</strong></div>
-            <div><span>Técnica</span><strong>{selectedTechnique ? `${selectedTechnique.id_tecnica} - ${selectedTechnique.nombre}` : 'Ninguna seleccionada'}</strong></div>
-            <div><span>Experimento</span><strong>{selectedExperiment ? selectedExperiment.id_experimento : 'Ninguno seleccionado'}</strong></div>
-            <div><span>Resultado</span><strong>{selectedResult ? selectedResult.id_resultado : 'Ninguno seleccionado'}</strong></div>
+
+          <form onSubmit={handleCaseSubmit} className="form-grid">
+            <select value={caseForm.id_problema} onChange={(event) => setCaseForm({ ...caseForm, id_problema: event.target.value })}>
+              <option value="">Selecciona un problema</option>
+              {problems.map((problem) => (
+                <option key={problem.id_problema} value={problem.id_problema}>
+                  {problem.id_problema} - {problem.titulo}
+                </option>
+              ))}
+            </select>
+            <textarea
+              value={caseForm.datos_entrada}
+              onChange={(event) => setCaseForm({ ...caseForm, datos_entrada: event.target.value })}
+              placeholder="Datos de entrada JSON"
+            />
+            <textarea
+              value={caseForm.salida_esperada}
+              onChange={(event) => setCaseForm({ ...caseForm, salida_esperada: event.target.value })}
+              placeholder="Salida esperada JSON"
+            />
+            <textarea
+              value={caseForm.descripcion}
+              onChange={(event) => setCaseForm({ ...caseForm, descripcion: event.target.value })}
+              placeholder="Descripción"
+            />
+            <div className="actions-row">
+              <button type="submit">{selectedCase ? 'Actualizar caso de prueba' : 'Crear caso de prueba'}</button>
+              {selectedCase && (
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setEditingCaseId(null)
+                    setCaseForm(emptyCaseForm)
+                  }}
+                >
+                  Cancelar edición
+                </button>
+              )}
+            </div>
+          </form>
+
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Problema</th>
+                  <th>Entrada</th>
+                  <th>Esperada</th>
+                  <th>Descripción</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {casesTests.map((caseTest) => (
+                  <tr key={caseTest.id_caso_prueba}>
+                    <td>{caseTest.id_caso_prueba}</td>
+                    <td>{problemById.get(caseTest.id_problema)?.titulo ?? caseTest.id_problema}</td>
+                    <td>{summarizeJson(caseTest.datos_entrada)}</td>
+                    <td>{summarizeJson(caseTest.salida_esperada)}</td>
+                    <td>{caseTest.descripcion ?? '-'}</td>
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          type="button"
+                          className="small"
+                          onClick={() => {
+                            setEditingCaseId(caseTest.id_caso_prueba)
+                            setCaseForm({
+                              id_problema: String(caseTest.id_problema),
+                              datos_entrada: JSON.stringify(caseTest.datos_entrada, null, 2),
+                              salida_esperada: JSON.stringify(caseTest.salida_esperada, null, 2),
+                              descripcion: caseTest.descripcion ?? '',
+                            })
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button type="button" className="small danger" onClick={() => void removeCase(caseTest.id_caso_prueba)}>
+                          Eliminar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {casesTests.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="empty-state">
+                      Sin casos de prueba todavía
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
-          <p className="hint">
-            Usa las listas de abajo para editar, y esta tarjeta para lanzar la ejecución con el problema y la técnica elegidos.
-          </p>
-        </div>
+        </article>
       </section>
 
       <section className="grid two-up">
-        <CrudPanel
-          title="Resultados"
-          subtitle="Tabla resultados"
-          form={
-            <form onSubmit={handleResultSubmit} className="form-grid">
-              <select value={resultForm.id_experimento} onChange={(event) => setResultForm({ ...resultForm, id_experimento: event.target.value })}>
-                <option value="">Selecciona un experimento</option>
-                {experiments.map((experiment) => (
-                  <option key={experiment.id_experimento} value={experiment.id_experimento}>{experiment.id_experimento}</option>
-                ))}
-              </select>
-              <input value={resultForm.exactitud_funcional} onChange={(event) => setResultForm({ ...resultForm, exactitud_funcional: event.target.value })} placeholder="Exactitud funcional" />
-              <input value={resultForm.maintainability_index} onChange={(event) => setResultForm({ ...resultForm, maintainability_index: event.target.value })} placeholder="Maintainability index" />
-              <input value={resultForm.complejidad} onChange={(event) => setResultForm({ ...resultForm, complejidad: event.target.value })} placeholder="Complejidad" />
-              <input value={resultForm.cognitive_complexity} onChange={(event) => setResultForm({ ...resultForm, cognitive_complexity: event.target.value })} placeholder="Cognitive complexity" />
-              <input value={resultForm.code_smells} onChange={(event) => setResultForm({ ...resultForm, code_smells: event.target.value })} placeholder="Code smells" />
-              <div className="actions-row">
-                <button type="submit">{selectedResult ? 'Actualizar resultado' : 'Crear resultado'}</button>
-                {selectedResult && (
-                  <button type="button" className="ghost" onClick={() => { setSelectedResultId(null); setResultForm(emptyResultForm) }}>
-                    Cancelar edición
-                  </button>
-                )}
-              </div>
-            </form>
-          }
-          table={<EntityTable<Result> rows={results} onEdit={(row) => { setSelectedResultId(row.id_resultado); setResultForm({ id_experimento: String(row.id_experimento), exactitud_funcional: row.exactitud_funcional?.toString() ?? '', maintainability_index: row.maintainability_index?.toString() ?? '', complejidad: row.complejidad?.toString() ?? '', cognitive_complexity: row.cognitive_complexity?.toString() ?? '', code_smells: row.code_smells?.toString() ?? '' }) }} onDelete={(row) => void removeResult(row.id_resultado)} renderRow={(row) => [row.id_resultado, row.id_experimento, row.exactitud_funcional ?? '-', row.maintainability_index ?? '-', row.code_smells ?? '-']} />}
+        <ReadonlyPanel title="Técnicas" eyebrow="Solo lectura" rows={techniques} renderRow={(technique) => [technique.id_tecnica, technique.nombre, technique.descripcion ?? '-']} />
+        <ReadonlyPanel
+          title="Experimentos"
+          eyebrow="Solo lectura"
+          rows={experiments}
+          renderRow={(experiment) => [
+            experiment.id_experimento,
+            problemById.get(experiment.id_problema)?.titulo ?? experiment.id_problema,
+            techniqueById.get(experiment.id_tecnica)?.nombre ?? experiment.id_tecnica,
+            experiment.fecha_ejecucion ?? '-',
+            truncate(experiment.prompt_generado, 60),
+          ]}
         />
+      </section>
 
-        <div className="panel preview-panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Detalle</p>
-              <h2>Vista de selección</h2>
-            </div>
-          </div>
-          <pre>{JSON.stringify({ selectedProblem, selectedTechnique, selectedExperiment, selectedResult }, null, 2)}</pre>
-        </div>
+      <section className="grid two-up">
+        <ReadonlyPanel
+          title="Resultados"
+          eyebrow="Solo lectura"
+          rows={results}
+          renderRow={(result) => [
+            result.id_resultado,
+            result.id_experimento,
+            result.exactitud_funcional ?? '-',
+            result.maintainability_index ?? '-',
+            result.code_smells ?? '-',
+          ]}
+        />
+        <ReadonlyPanel
+          title="Ejecuciones de prueba"
+          eyebrow="Solo lectura"
+          rows={executionTests}
+          renderRow={(executionTest) => [
+            executionTest.id_ejecucion_prueba,
+            experimentById.get(executionTest.id_experimento)?.id_experimento ?? executionTest.id_experimento,
+            caseById.get(executionTest.id_caso_prueba)?.id_caso_prueba ?? executionTest.id_caso_prueba,
+            executionTest.prueba_superada ? 'Sí' : 'No',
+            executionTest.tiempo_ejecucion ?? '-',
+            executionTest.mensaje_error ?? '-',
+          ]}
+        />
       </section>
     </main>
   )
 }
 
-function CrudPanel({ title, subtitle, form, table }: { title: string; subtitle: string; form: ReactNode; table: ReactNode }) {
+function ReadonlyPanel<T>({
+  title,
+  eyebrow,
+  rows,
+  renderRow,
+}: {
+  title: string
+  eyebrow: string
+  rows: T[]
+  renderRow: (row: T) => Array<string | number>
+}) {
   return (
     <article className="panel">
       <div className="panel-head">
         <div>
-          <p className="eyebrow">{subtitle}</p>
+          <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
         </div>
       </div>
-      {form}
-      {table}
+      <div className="table-wrap">
+        <table>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={String(renderRow(row)[0])}>
+                {renderRow(row).map((cell, index) => (
+                  <td key={`${String(cell)}-${index}`}>{String(cell)}</td>
+                ))}
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={99} className="empty-state">
+                  Sin registros todavía
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </article>
   )
 }
 
-function EntityTable<T extends { [key: string]: unknown }>({
-  rows,
-  renderRow,
-  onEdit,
-  onDelete,
-}: {
-  rows: T[]
-  renderRow: (row: T) => Array<string | number>
-  onEdit: (row: T) => void
-  onDelete: (row: T) => void
-}) {
-  return (
-    <div className="table-wrap">
-      <table>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={String(renderRow(row)[0])}>
-              {renderRow(row).map((cell, index) => (
-                <td key={`${String(cell)}-${index}`}>{String(cell)}</td>
-              ))}
-              <td className="row-actions">
-                <button type="button" className="small" onClick={() => onEdit(row)}>Editar</button>
-                <button type="button" className="small danger" onClick={() => onDelete(row)}>Eliminar</button>
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={99} className="empty-state">Sin registros todavía</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
+function summarizeJson(value: Record<string, unknown>) {
+  return truncate(JSON.stringify(value), 50)
+}
+
+function truncate(value: string, maxLength: number) {
+  if (value.length <= maxLength) {
+    return value
+  }
+
+  return `${value.slice(0, maxLength - 1)}…`
 }
 
 export default App

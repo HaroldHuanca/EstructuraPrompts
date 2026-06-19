@@ -12,6 +12,14 @@ class ExperimentRepository:
     def list(self) -> list[Experiment]:
         return list(self.db.scalars(select(Experiment)).all())
 
+    def list_by_problem(self, problem_id: int) -> list[Experiment]:
+        statement = select(Experiment).where(Experiment.id_problema == problem_id)
+        return list(self.db.scalars(statement).all())
+
+    def exists_for_problem(self, problem_id: int) -> bool:
+        statement = select(Experiment.id_experimento).where(Experiment.id_problema == problem_id).limit(1)
+        return self.db.execute(statement).first() is not None
+
     def get(self, experiment_id: int) -> Experiment | None:
         return self.db.get(Experiment, experiment_id)
 

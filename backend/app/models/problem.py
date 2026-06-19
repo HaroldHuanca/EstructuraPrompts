@@ -14,3 +14,4 @@ class Problem(Base):
     restricciones: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     experimentos = relationship("Experiment", back_populates="problema", cascade="all, delete-orphan")
+    casos_prueba = relationship("CaseTest", back_populates="problema", cascade="all, delete-orphan")

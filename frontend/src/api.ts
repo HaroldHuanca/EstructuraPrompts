@@ -21,30 +21,35 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
+const postJson = (data: unknown) => ({ method: 'POST', body: JSON.stringify(data) })
+const putJson = (data: unknown) => ({ method: 'PUT', body: JSON.stringify(data) })
+
 export const api = {
   problems: {
-    list: () => request<any[]>('/problems/'),
-    create: (data: unknown) => request('/problems/', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: unknown) => request(`/problems/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    list: () => request<unknown[]>('/problems/'),
+    create: (data: unknown) => request('/problems/', postJson(data)),
+    update: (id: number, data: unknown) => request(`/problems/${id}`, putJson(data)),
     remove: (id: number) => request(`/problems/${id}`, { method: 'DELETE' }),
   },
+  cases: {
+    list: () => request<unknown[]>('/cases-prueba/'),
+    create: (data: unknown) => request('/cases-prueba/', postJson(data)),
+    update: (id: number, data: unknown) => request(`/cases-prueba/${id}`, putJson(data)),
+    remove: (id: number) => request(`/cases-prueba/${id}`, { method: 'DELETE' }),
+  },
   techniques: {
-    list: () => request<any[]>('/techniques/'),
-    create: (data: unknown) => request('/techniques/', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: unknown) => request(`/techniques/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    remove: (id: number) => request(`/techniques/${id}`, { method: 'DELETE' }),
+    list: () => request<unknown[]>('/techniques/'),
   },
   experiments: {
-    list: () => request<any[]>('/experiments/'),
-    create: (data: unknown) => request('/experiments/', { method: 'POST', body: JSON.stringify(data) }),
-    execute: (data: unknown) => request('/experiments/execute', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: unknown) => request(`/experiments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    remove: (id: number) => request(`/experiments/${id}`, { method: 'DELETE' }),
+    list: () => request<unknown[]>('/experiments/'),
+    runSingle: (problemId: number, techniqueId: number) => request(`/experiments/run/${problemId}`, postJson({ technique_id: techniqueId })),
+    runBatch: (problemIds: number[], techniqueId: number) => request('/experiments/run-batch', postJson({ problem_ids: problemIds, technique_id: techniqueId })),
+    runPending: (techniqueId: number) => request('/experiments/run-pending', postJson({ technique_id: techniqueId })),
   },
   results: {
-    list: () => request<any[]>('/results/'),
-    create: (data: unknown) => request('/results/', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: unknown) => request(`/results/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    remove: (id: number) => request(`/results/${id}`, { method: 'DELETE' }),
+    list: () => request<unknown[]>('/results/'),
+  },
+  executionTests: {
+    list: () => request<unknown[]>('/execution-tests/'),
   },
 }

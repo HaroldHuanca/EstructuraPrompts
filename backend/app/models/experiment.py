@@ -19,3 +19,4 @@ class Experiment(Base):
     problema = relationship("Problem", back_populates="experimentos")
     tecnica = relationship("Technique", back_populates="experimentos")
     resultado = relationship("Result", back_populates="experimento", uselist=False, cascade="all, delete-orphan")
+    ejecuciones_prueba = relationship("ExecutionTest", back_populates="experimento", cascade="all, delete-orphan")
